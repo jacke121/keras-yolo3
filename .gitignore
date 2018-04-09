@@ -1,0 +1,12 @@
+*.pyc
+*.swp
+*.log
+*.jpg
+*.bk
+*.o
+*.so
+backup/
+*.weights
+*.h5
+VOCdevkit
+.idea/

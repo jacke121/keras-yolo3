@@ -6,22 +6,9 @@ from keras.layers.merge import add, concatenate
 from keras.models import Model
 import struct
 import cv2
-
+import datetime
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]=""
-
-argparser = argparse.ArgumentParser(
-    description='test yolov3 network with coco weights')
-
-argparser.add_argument(
-    '-w',
-    '--weights',
-    help='path to weights file')
-
-argparser.add_argument(
-    '-i',
-    '--image',
-    help='path to image file')
+# os.environ["CUDA_VISIBLE_DEVICES"]=""
 
 class WeightReader:
     def __init__(self, weight_file):
@@ -54,9 +41,7 @@ class WeightReader:
 
                 if i not in [81, 93, 105]:
                     norm_layer = model.get_layer('bnorm_' + str(i))
-
                     size = np.prod(norm_layer.get_weights()[0].shape)
-
                     beta  = self.read_bytes(size) # bias
                     gamma = self.read_bytes(size) # scale
                     mean  = self.read_bytes(size) # mean
@@ -88,10 +73,8 @@ class BoundBox:
         self.ymin = ymin
         self.xmax = xmax
         self.ymax = ymax
-        
         self.objness = objness
         self.classes = classes
-
         self.label = -1
         self.score = -1
 
@@ -156,7 +139,8 @@ def bbox_iou(box1, box2):
     w2, h2 = box2.xmax-box2.xmin, box2.ymax-box2.ymin
     
     union = w1*h1 + w2*h2 - intersect
-    
+    if union==0:
+        return 0.99
     return float(intersect) / union
 
 def make_yolov3_model():
@@ -259,11 +243,11 @@ def preprocess_input(image, net_h, net_w):
     new_h, new_w, _ = image.shape
 
     # determine the new size of the image
-    if (float(net_w)/new_w) < (float(net_h)/new_h):
-        new_h = (new_h * net_w)/new_w
+    if net_w/new_w < net_h/new_h:
+        new_h = (new_h * net_w)//new_w
         new_w = net_w
     else:
-        new_w = (new_w * net_h)/new_h
+        new_w = (new_w * net_h)//new_h
         new_h = net_h
 
     # resize the image to the new size
@@ -271,7 +255,7 @@ def preprocess_input(image, net_h, net_w):
 
     # embed the image into the standard letter box
     new_image = np.ones((net_h, net_w, 3)) * 0.5
-    new_image[(net_h-new_h)/2:(net_h+new_h)/2, (net_w-new_w)/2:(net_w+new_w)/2, :] = resized
+    new_image[(net_h-new_h)//2:(net_h+new_h)//2, (net_w-new_w)//2:(net_w+new_w)//2, :] = resized
     new_image = np.expand_dims(new_image, 0)
 
     return new_image
@@ -290,13 +274,12 @@ def decode_netout(netout, anchors, obj_thresh, nms_thresh, net_h, net_w):
     netout[..., 5:] *= netout[..., 5:] > obj_thresh
 
     for i in range(grid_h*grid_w):
-        row = i / grid_w
+        row = i // grid_w
         col = i % grid_w
         
         for b in range(nb_box):
             # 4th element is objectness score
             objectness = netout[row, col, b, 4]
-            
             if(objectness <= obj_thresh): continue
             
             # first 4 elements are x, y, w, and h
@@ -305,7 +288,7 @@ def decode_netout(netout, anchors, obj_thresh, nms_thresh, net_h, net_w):
             x = (col + x) / grid_w # center position, unit: image width
             y = (row + y) / grid_h # center position, unit: image height
             w = anchors[2 * b + 0] * np.exp(w) / net_w # unit: image width
-            h = anchors[2 * b + 1] * np.exp(h) / net_h # unit: image height  
+            h = anchors[2 * b + 1] * np.exp(h) / net_h # unit: image height
             
             # last elements are class probabilities
             classes = netout[row,col,b,5:]
@@ -317,7 +300,7 @@ def decode_netout(netout, anchors, obj_thresh, nms_thresh, net_h, net_w):
     return boxes
 
 def correct_yolo_boxes(boxes, image_h, image_w, net_h, net_w):
-    if (float(net_w)/image_w) < (float(net_h)/image_h):
+    if (net_w/image_w) < (net_h/image_h):
         new_w = net_w
         new_h = (image_h*net_w)/image_w
     else:
@@ -325,8 +308,8 @@ def correct_yolo_boxes(boxes, image_h, image_w, net_h, net_w):
         new_w = (image_w*net_h)/image_h
         
     for i in range(len(boxes)):
-        x_offset, x_scale = (net_w - new_w)/2./net_w, float(new_w)/net_w
-        y_offset, y_scale = (net_h - new_h)/2./net_h, float(new_h)/net_h
+        x_offset, x_scale = (net_w - new_w)/2./net_w, new_w/net_w
+        y_offset, y_scale = (net_h - new_h)/2./net_h, new_h/net_h
         
         boxes[i].xmin = int((boxes[i].xmin - x_offset) / x_scale * image_w)
         boxes[i].xmax = int((boxes[i].xmax - x_offset) / x_scale * image_w)
@@ -375,9 +358,8 @@ def draw_boxes(image, boxes, labels, obj_thresh):
         
     return image      
 
-def _main_(args):
-    weights_path = args.weights
-    image_path   = args.image
+def _main_():
+    weights_path = "yolo.h5"
 
     # set some parameters
     net_h, net_w = 416, 416
@@ -399,34 +381,39 @@ def _main_(args):
 
     # load the weights trained on COCO into the model
     #weight_reader = WeightReader(weights_path)
-    yolov3.load_weights("model.h5")
-    yolov3.save("backend.h5")
+    yolov3.load_weights(weights_path)
+    # yolov3.save("backend.h5")
+    path = r"image/"
+    files = os.listdir(path)
+    # files.sort(key=lambda x: int(x[:-4]))
+    for filename in files:
+        if filename.endswith(".jpg") or filename.endswith(".png") or filename.endswith(".bmp"):
+            image_name = os.path.join(path , filename)
+            image = cv2.imread(image_name)
+            image_h, image_w, _ = image.shape
+            new_image = preprocess_input(image, net_h, net_w)
 
-    # preprocess the image
-    image = cv2.imread(image_path)
-    image_h, image_w, _ = image.shape
-    new_image = preprocess_input(image, net_h, net_w)
+            # run the prediction
+            now=datetime.datetime.now()
+            yolos = yolov3.predict(new_image)
+            print("time",(datetime.datetime.now()-now).microseconds)
+            boxes = []
 
-    # run the prediction
-    yolos = yolov3.predict(new_image)
-    boxes = []
+            for i in range(len(yolos)):
+                # decode the output of the network
+                boxes += decode_netout(yolos[i][0], anchors[i], obj_thresh, nms_thresh, net_h, net_w)
 
-    for i in range(len(yolos)):
-        # decode the output of the network
-        boxes += decode_netout(yolos[i][0], anchors[i], obj_thresh, nms_thresh, net_h, net_w)
+            # correct the sizes of the bounding boxes
+            correct_yolo_boxes(boxes, image_h, image_w, net_h, net_w)
 
-    # correct the sizes of the bounding boxes
-    correct_yolo_boxes(boxes, image_h, image_w, net_h, net_w)
+            # suppress non-maximal boxes
+            do_nms(boxes, nms_thresh)
+            print(boxes)
+            # draw bounding boxes on the image using labels
+            draw_boxes(image, boxes, labels, obj_thresh)
 
-    # suppress non-maximal boxes
-    do_nms(boxes, nms_thresh)     
-
-    # draw bounding boxes on the image using labels
-    draw_boxes(image, boxes, labels, obj_thresh) 
- 
-    # write the image with bounding boxes to file
-    cv2.imwrite(image_path[:-4] + '_detected' + image_path[-4:], (image).astype('uint8')) 
+            # write the image with bounding boxes to file
+            cv2.imwrite('detected/' + filename, (image).astype('uint8'))
 
 if __name__ == '__main__':
-    args = argparser.parse_args()
-    _main_(args)
+    _main_()

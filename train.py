@@ -20,15 +20,10 @@ argparser = argparse.ArgumentParser(
 argparser.add_argument(
     '-c',
     '--conf',
+    default="config.json",
     help='path to configuration file')
 
-def create_training_instances(
-    train_annot_folder,
-    train_image_folder,
-    valid_annot_folder,
-    valid_image_folder,
-    labels
-):
+def create_training_instances(train_annot_folder,train_image_folder,valid_annot_folder,valid_image_folder,labels):
     # parse annotations of the training set
     train_ints, train_labels = parse_voc_annotation(train_annot_folder, 
                                                 train_image_folder, 

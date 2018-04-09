@@ -42,7 +42,7 @@ class BatchGenerator(Sequence):
     def __getitem__(self, idx):
         # get image input size, change every 10 batches
         net_h, net_w = self._get_net_size(idx)
-        base_grid_h, base_grid_w = net_h/self.downsample, net_w/self.downsample
+        base_grid_h, base_grid_w = net_h//self.downsample, net_w//self.downsample
 
         # determine the first and the last indices of the batch
         l_bound = idx*self.batch_size
@@ -116,9 +116,9 @@ class BatchGenerator(Sequence):
                 grid_x = int(np.floor(center_x))
                 grid_y = int(np.floor(center_y))
 
-                if grid_x >= grid_w: print obj['xmin'], obj['xmax'], img.shape
-                if grid_y >= grid_h: print obj['ymin'], obj['ymax'], img.shape
-                
+                if grid_x >= grid_w: print(obj['xmin'], obj['xmax'], img.shape)
+                if grid_y >= grid_h: print(obj['ymin'], obj['ymax'], img.shape)
+
                 # assign ground truth x, y, w, h, confidence and class probs to y_batch
                 yolo[instance_count, grid_y, grid_x, max_index%3, 0:4] = box
                 yolo[instance_count, grid_y, grid_x, max_index%3, 4  ] = 1.
