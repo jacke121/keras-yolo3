@@ -10,3 +10,5 @@ backup/
 *.h5
 VOCdevkit
 .idea/
+*.pkl
+logs

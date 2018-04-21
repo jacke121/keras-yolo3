@@ -19,20 +19,19 @@ class BatchGenerator(Sequence):
         jitter=True, 
         norm=None
     ):
-        self.instances       = instances
-        self.batch_size   = batch_size
-        self.labels = labels
-        self.downsample = downsample
-        self.max_box_per_image = max_box_per_image
-        self.min_net_size = (min_net_size//self.downsample)*self.downsample
-        self.max_net_size = (max_net_size//self.downsample)*self.downsample
-        self.shuffle      = shuffle
-        self.jitter       = jitter
-        self.norm         = norm
-        self.anchors      = [BoundBox(0, 0, anchors[2*i], anchors[2*i+1]) for i in range(len(anchors)//2)]
-
-        self.net_h        = 416  
-        self.net_w        = 416
+        self.instances          = instances
+        self.batch_size         = batch_size
+        self.labels             = labels
+        self.downsample         = downsample
+        self.max_box_per_image  = max_box_per_image
+        self.min_net_size       = (min_net_size//self.downsample)*self.downsample
+        self.max_net_size       = (max_net_size//self.downsample)*self.downsample
+        self.shuffle            = shuffle
+        self.jitter             = jitter
+        self.norm               = norm
+        self.anchors            = [BoundBox(0, 0, anchors[2*i], anchors[2*i+1]) for i in range(len(anchors)//2)]
+        self.net_h              = 416  
+        self.net_w              = 416
 
         if shuffle: np.random.shuffle(self.instances)
             
@@ -116,10 +115,8 @@ class BatchGenerator(Sequence):
                 grid_x = int(np.floor(center_x))
                 grid_y = int(np.floor(center_y))
 
-                if grid_x >= grid_w: print(obj['xmin'], obj['xmax'], img.shape)
-                if grid_y >= grid_h: print(obj['ymin'], obj['ymax'], img.shape)
-
                 # assign ground truth x, y, w, h, confidence and class probs to y_batch
+                yolo[instance_count, grid_y, grid_x, max_index%3]      = 0
                 yolo[instance_count, grid_y, grid_x, max_index%3, 0:4] = box
                 yolo[instance_count, grid_y, grid_x, max_index%3, 4  ] = 1.
                 yolo[instance_count, grid_y, grid_x, max_index%3, 5+obj_indx] = 1
@@ -160,9 +157,10 @@ class BatchGenerator(Sequence):
     
     def _aug_image(self, instance, net_h, net_w):
         image_name = instance['filename']
-        image = cv2.imread(image_name)[:,:,::-1] # RGB image
+        image = cv2.imread(image_name) # RGB image
         
         if image is None: print('Cannot find ', image_name)
+        image = image[:,:,::-1] # RGB image
             
         image_h, image_w, _ = image.shape
         
@@ -206,6 +204,14 @@ class BatchGenerator(Sequence):
 
     def size(self):
         return len(self.instances)    
+
+    def get_anchors(self):
+        anchors = []
+
+        for anchor in self.anchors:
+            anchors += [anchor.xmax, anchor.ymax]
+
+        return anchors
 
     def load_annotation(self, i):
         annots = []
