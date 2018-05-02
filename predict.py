@@ -106,7 +106,7 @@ def _main_(args):
         else:
             image_paths += [input_path]
 
-        image_paths = [inp_file for inp_file in image_paths if (inp_file[-4:] == '.jpg' or inp_file == '.png')]
+        image_paths = [inp_file for inp_file in image_paths if (inp_file[-4:] in ['.jpg', '.png', 'JPEG'])]
 
         # the main loop
         for image_path in image_paths:
@@ -124,9 +124,9 @@ def _main_(args):
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser(description='Predict with a trained yolo model')
-    argparser.add_argument('-c', '--conf',      help='path to configuration file')
-    argparser.add_argument('-i', '--input',     help='path to an image, a directory of images, a video, or webcam')    
-    argparser.add_argument('-o', '--output',    help='path to output directory')   
+    argparser.add_argument('-c', '--conf', help='path to configuration file')
+    argparser.add_argument('-i', '--input', help='path to an image, a directory of images, a video, or webcam')    
+    argparser.add_argument('-o', '--output', default='output/', help='path to output directory')   
     
     args = argparser.parse_args()
     _main_(args)
